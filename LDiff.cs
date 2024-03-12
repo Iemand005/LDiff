@@ -43,7 +43,7 @@ namespace ManagedLDiff
             try
             {
                 FileStream sourceFileStream = File.Open(fileName, FileMode.Open, FileAccess.Read);
-                if (sourceFileStream.Length != BaseFileStream.Length) throw new Exception("The stacked file size doesn't match the base file size.");
+                if (sourceFileStream.Length != BaseFileStream.Length) throw new InvalidDataException("The stacked file size doesn't match the base file size.");
                 DiffStack.Add(sourceFileStream, File.Open(outFileName, FileMode.Create, FileAccess.Write));
             }
             catch { throw; }
@@ -177,7 +177,7 @@ namespace ManagedLDiff
             {
                 byte[] fileNameBuffer = Encoding.Unicode.GetBytes(fileInfo.FullName);
                 int fileNameLength = fileInfo.FullName.Length;
-                if (fileNameLength >= 256) throw new Exception("File path is too long.");
+                if (fileNameLength >= 256) throw new ArgumentException("File path is too long.");
                 HeaderFileStream.WriteByte((byte)fileNameLength);
                 HeaderFileStream.Write(fileNameBuffer, 0, fileNameBuffer.Length);
                 //throw new NotImplementedException();
@@ -189,10 +189,11 @@ namespace ManagedLDiff
         /// Increments the chesksum with one byte.
         /// </summary>
         /// <param name="source">The checksum to increment.</param>
-        /// <param name="next">The byte to perform the calculation on.</param>
+        /// <param name="next">The byte to perform the calculation with.</param>
         /// <param name="offset">The position of the current byte.</param>
         public static void CheckSum(byte[] source, byte next, long offset)
         {
+            if (source == null) throw new Exception("The provided source is invalid.");
             long a = offset - 1;
             byte calc = (byte)((source[(a < 0 ? -a : a) % source.Length] ^ next) + next - (offset ^ next));
             source[offset % source.Length] = calc;
@@ -204,11 +205,17 @@ namespace ManagedLDiff
         private void CloseAll()
         {
             BaseFileStream.Close();
+            HeaderFileStream.Close();
             foreach (var stream in DiffStack)
             {
                 stream.Key.Close();
                 stream.Value.Close();
             }
+        }
+
+        public void Close()
+        {
+            CloseAll();
         }
 
     }
@@ -269,7 +276,7 @@ namespace ManagedLDiff
 
                     int ver = diffedFile.ReadByte();
 
-                    if (!(magicString == "LDIF" && ver == 1)) throw new Exception("Invalid file format!");
+                    if (!(magicString == "LDIF" && ver == 1)) throw new InvalidDataException("Invalid file format!");
 
                     diffedFile.Seek(-8, SeekOrigin.End);
 
@@ -277,9 +284,7 @@ namespace ManagedLDiff
                     diffedFile.Read(footerBuffer, 0, 4);
                     diffedFile.Read(validChecksum, 0, 4);
                     int headerSize = BitConverter.ToInt32(footerBuffer, 0);
-                    if (headerSize == 0) throw new Exception("The file contains no data.");
-                    //diffedFile.Read(footerBuffer, 0, 4);
-                    //byte[] validChecksum = footerBuffer;
+                    if (headerSize == 0) throw new InvalidDataException("The file contains no data.");
 
                     diffedFile.Seek(-((headerSize * 16) + 8), SeekOrigin.End);
 
@@ -331,8 +336,6 @@ namespace ManagedLDiff
                                 if (offset >= differOffset && offset < differLength)
                                 {
                                     current = (byte)UndiffStack[layerIndex].ReadByte();
-                                    //break;
-                                    //byte peer = (byte)a.ReadByte();
                                     if (!found)
                                     {
                                         outFileStream.WriteByte(current);
@@ -371,6 +374,7 @@ namespace ManagedLDiff
 
     public enum IndexingSize
     {
+        None = 0,
         Byte = 1,
         Short = 2,
         Normal = 4,
