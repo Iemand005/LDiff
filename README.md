@@ -6,11 +6,12 @@ Target data:
 
 Doesn't work well with:
 - Small files
+- File that are
 
 Advantages over LZMA and RAR:
 - No restriction on dictionary size.
 - Speed.
-- No increase in entropy, so compressed files can be extra compressed by being fed through RAR or LZMA to combine the efficiency.
+- No increase in entropy, so the extracted layers can be compressed again with RAR or LZMA to make it even smaller.
 
 Requirements:
 - Files need to be the same size.
